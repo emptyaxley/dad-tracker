@@ -41,14 +41,25 @@ function haversine(lat1, lon1, lat2, lon2) {
   return (R * c).toFixed(1);
 }
 
-// Friendly date formatting
-function formatUpdated(rowUpdated) {
-  if (!rowUpdated) return "N/A";
+// Parse Google Sheets date string like "1/6/2026 22:25:50"
+function parseSheetDate(sheetValue) {
+  if (!sheetValue) return null;
 
-  const d = new Date(rowUpdated);
+  const [datePart, timePart] = sheetValue.split(" ");
+  if (!datePart || !timePart) return null;
+
+  const [month, day, year] = datePart.split("/").map(Number);
+  const [hours, minutes, seconds] = timePart.split(":").map(Number);
+
+  return new Date(year, month - 1, day, hours, minutes, seconds);
+}
+
+// Friendly updated date string
+function formatUpdated(sheetValue) {
+  const d = parseSheetDate(sheetValue);
+  if (!d) return "N/A";
+
   const now = new Date();
-
-  // Normalize dates to midnight for comparison
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
@@ -56,7 +67,6 @@ function formatUpdated(rowUpdated) {
   const updatedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
   if (updatedDate.getTime() === today.getTime()) {
-    // Today: show "Today at HH:MM:SS AM/PM"
     const hours = d.getHours() % 12 || 12;
     const minutes = d.getMinutes().toString().padStart(2, "0");
     const seconds = d.getSeconds().toString().padStart(2, "0");
@@ -65,8 +75,7 @@ function formatUpdated(rowUpdated) {
   } else if (updatedDate.getTime() === yesterday.getTime()) {
     return "Yesterday";
   } else {
-    // Older: show days ago
-    const diffTime = today - updatedDate; // in milliseconds
+    const diffTime = today - updatedDate;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
   }
