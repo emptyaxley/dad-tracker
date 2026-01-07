@@ -68,9 +68,11 @@ function loadData() {
        if (row.mode === "FLYING" && row.flight_id) {
       const iframe = document.createElement("iframe");
       iframe.src = `https://www.airnavradar.com/data/flights/${row.flight_id}`;
-      iframe.style.width = "100vw";
-      iframe.style.height = "100vh";
+      iframe.style.width = "100%";
+      iframe.style.height = "110%"; // extra height
       iframe.style.border = "none";
+      iframe.style.transform = "translateY(-50px)";
+      iframe.style.transformOrigin = "top left";
       app.appendChild(iframe);
       return;
   }
