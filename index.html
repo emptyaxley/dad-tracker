@@ -53,10 +53,7 @@ function loadData() {
       const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
       const table = JSON.parse(jsonText).table;
 
-      // Column names (now real headers)
       const headers = table.cols.map(c => c.label);
-
-      // First data row (Row 2 in Sheets)
       const values = table.rows[0].c;
 
       const row = {};
@@ -67,10 +64,10 @@ function loadData() {
       const app = document.getElementById("app");
       app.innerHTML = "";
 
-      // ✈️ FLIGHT MODE
+      // ✈️ FLIGHT MODE using official FlightAware widget
       if (row.mode === "FLYING" && row.flight_id) {
         const iframe = document.createElement("iframe");
-        iframe.src = `https://www.flightradar24.com/${row.flight_id}`;
+        iframe.src = `https://flightaware.com/embed/flight/${row.flight_id}?feedType=html`;
         iframe.style.width = "100vw";
         iframe.style.height = "100vh";
         iframe.style.border = "none";
@@ -96,9 +93,6 @@ function loadData() {
 loadData();
 setInterval(loadData, 60000);
 </script>
-
-
-
 
 </body>
 </html>
