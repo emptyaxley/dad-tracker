@@ -70,7 +70,7 @@ function loadData() {
       // ✈️ FLIGHT MODE
       if (row.mode === "FLYING" && row.flight_id) {
         const iframe = document.createElement("iframe");
-        iframe.src = `https://flightaware.com/live/flight/${row.flight_id}`;
+        iframe.src = `https://www.flightradar24.com/${row.flight_id}`;
         iframe.style.width = "100vw";
         iframe.style.height = "100vh";
         iframe.style.border = "none";
