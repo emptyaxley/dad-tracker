@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dad Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0b1c2d;
+      color: white;
+      text-align: center;
+    }
+    .container {
+      padding: 30px;
+    }
+    .big {
+      font-size: 48px;
+      font-weight: bold;
+    }
+    .medium {
+      font-size: 28px;
+      margin-top: 10px;
+    }
+    .small {
+      font-size: 18px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="big" id="status">Loading…</div>
+    <div class="medium" id="location"></div>
+    <div class="small" id="updated"></div>
+  </div>
+
+  <script>
+    const SHEET_ID = "2PACX-1vT-ddDSSF8R55YqeH3Wzc1ADrWWs_oWcq6V2dGnywfNiqej5EQlzr95AWdau8wwlsGw7gEq_gM4BdNU";
+    const URL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vT-ddDSSF8R55YqeH3Wzc1ADrWWs_oWcq6V2dGnywfNiqej5EQlzr95AWdau8wwlsGw7gEq_gM4BdNU/pubhtml`;
+
+    fetch(URL)
+      .then(res => res.text())
+      .then(text => {
+        const json = JSON.parse(text.substring(47).slice(0, -2));
+        const row = json.table.rows[0].c;
+
+        const mode = row[0]?.v;
+        const city = row[4]?.v;
+        const state = row[5]?.v;
+        const updated = row[6]?.v;
+
+        document.getElementById("status").textContent =
+          mode === "FLYING" ? "Dad is flying ✈️" : "Dad is here";
+
+        document.getElementById("location").textContent =
+          city && state ? `${city}, ${state}` : "";
+
+        document.getElementById("updated").textContent =
+          updated ? `Updated: ${updated}` : "";
+      });
+  </script>
+</body>
+</html>
