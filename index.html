@@ -44,25 +44,59 @@
 
 <script>
 const SHEET_ID = "1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4";
-const URL = `https://docs.google.com/spreadsheets/d/1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4/gviz/tq?tqx=out:json`;
+const URL = `https://docs.google.com/spreadsheets/d/1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4/gviz/tq?tqx=out:json&headers=1`;
 
-fetch(URL)
-  .then(res => res.text())
-  .then(text => {
-    const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
-    const table = JSON.parse(jsonText).table;
+function loadData() {
+  fetch(URL)
+    .then(res => res.text())
+    .then(text => {
+      const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
+      const table = JSON.parse(jsonText).table;
 
-    document.body.innerHTML = `
-      <pre style="color:white; padding:20px;">
-COLUMNS:
-${table.cols.map(c => `id: "${c.id}" | label: "${c.label}"`).join("\n")}
+      // Column names (now real headers)
+      const headers = table.cols.map(c => c.label);
 
-ROW:
-${JSON.stringify(table.rows[0].c, null, 2)}
-      </pre>
-    `;
-  });
+      // First data row (Row 2 in Sheets)
+      const values = table.rows[0].c;
+
+      const row = {};
+      headers.forEach((h, i) => {
+        row[h] = values[i]?.v || "";
+      });
+
+      const app = document.getElementById("app");
+      app.innerHTML = "";
+
+      // ✈️ FLIGHT MODE
+      if (row.mode === "FLYING" && row.flight_id) {
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://flightaware.com/live/flight/${row.flight_id}`;
+        iframe.style.width = "100vw";
+        iframe.style.height = "100vh";
+        iframe.style.border = "none";
+        app.appendChild(iframe);
+        return;
+      }
+
+      // 🌍 GROUND MODE (fallback)
+      app.innerHTML = `
+        <div class="center">
+          <div class="big">Dad is here</div>
+          <div class="medium">${row.city}, ${row.state}</div>
+          <div class="small">Updated: ${row.updated}</div>
+        </div>
+      `;
+    })
+    .catch(err => {
+      document.getElementById("app").innerHTML =
+        `<div class="center"><div class="big">Error</div><div>${err}</div></div>`;
+    });
+}
+
+loadData();
+setInterval(loadData, 60000);
 </script>
+
 
 
 
