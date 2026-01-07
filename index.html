@@ -10,68 +10,85 @@
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       background: #0b1c2d;
       color: white;
+    }
+
+    .center {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
       text-align: center;
     }
-    .container {
-      padding: 30px;
-    }
+
     .big {
       font-size: 48px;
       font-weight: bold;
     }
+
     .medium {
       font-size: 28px;
       margin-top: 10px;
     }
-    .small {
-      font-size: 18px;
-      opacity: 0.8;
+
+    iframe {
+      border: none;
+      width: 100vw;
+      height: 100vh;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="big" id="status">Loading…</div>
-    <div class="medium" id="location"></div>
-    <div class="small" id="updated"></div>
-  </div>
 
-  <script>
-    const SHEET_ID = "1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4";
-    const URL = `https://docs.google.com/spreadsheets/d/1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4/gviz/tq?tqx=out:json`;
+<div id="app"></div>
 
-fetch(URL)
-  .then(res => res.text())
-  .then(text => {
-    const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
-    const json = JSON.parse(jsonText);
+<script>
+const SHEET_ID = "1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4";
+const URL = "https://docs.google.com/spreadsheets/d/1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4/gviz/tq?tqx=out:json";
 
-    if (!json.table.rows.length) {
-      document.getElementById("status").textContent = "No data found";
-      return;
-    }
+function loadData() {
+  fetch(URL)
+    .then(res => res.text())
+    .then(text => {
+      const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
+      const json = JSON.parse(jsonText);
+      const row = json.table.rows[0].c;
 
-    const row = json.table.rows[0].c;
+      const mode = row[0]?.v || "GROUND";
+      const flightId = row[1]?.v || "";
+      const city = row[4]?.v || "";
+      const state = row[5]?.v || "";
 
-    const mode = row[0]?.v || "";
-    const city = row[4]?.v || "";
-    const state = row[5]?.v || "";
-    const updated = row[6]?.v || "";
+      const app = document.getElementById("app");
+      app.innerHTML = "";
 
-    document.getElementById("status").textContent =
-      mode === "FLYING" ? "Dad is flying ✈️" : "Dad is here";
+      if (mode === "FLYING" && flightId) {
+        // ✈️ FLIGHT MODE
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://flightaware.com/live/flight/${flightId}`;
+        app.appendChild(iframe);
+      } else {
+        // 🌍 GROUND MODE (temporary text-only)
+        app.innerHTML = `
+          <div class="center">
+            <div class="big">Dad is here</div>
+            <div class="medium">${city}, ${state}</div>
+          </div>
+        `;
+      }
+    })
+    .catch(err => {
+      document.getElementById("app").innerHTML =
+        `<div class="center"><div class="big">Error</div><div>${err}</div></div>`;
+    });
+}
 
-    document.getElementById("location").textContent =
-      city && state ? `${city}, ${state}` : "";
+// Initial load
+loadData();
 
-    document.getElementById("updated").textContent =
-      updated ? `Updated: ${updated}` : "";
-  })
-  .catch(err => {
-    document.getElementById("status").textContent = "Error loading location";
-    document.getElementById("location").textContent = err.toString();
-  });
+// Auto-refresh every 60 seconds
+setInterval(loadData, 60000);
+</script>
 
-  </script>
 </body>
 </html>
