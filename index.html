@@ -40,26 +40,38 @@
     const SHEET_ID = "1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4";
     const URL = `https://docs.google.com/spreadsheets/d/1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4/edit`;
 
-    fetch(URL)
-      .then(res => res.text())
-      .then(text => {
-        const json = JSON.parse(text.substring(47).slice(0, -2));
-        const row = json.table.rows[0].c;
+fetch(URL)
+  .then(res => res.text())
+  .then(text => {
+    const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
+    const json = JSON.parse(jsonText);
 
-        const mode = row[0]?.v;
-        const city = row[4]?.v;
-        const state = row[5]?.v;
-        const updated = row[6]?.v;
+    if (!json.table.rows.length) {
+      document.getElementById("status").textContent = "No data found";
+      return;
+    }
 
-        document.getElementById("status").textContent =
-          mode === "FLYING" ? "Dad is flying ✈️" : "Dad is here";
+    const row = json.table.rows[0].c;
 
-        document.getElementById("location").textContent =
-          city && state ? `${city}, ${state}` : "";
+    const mode = row[0]?.v || "";
+    const city = row[4]?.v || "";
+    const state = row[5]?.v || "";
+    const updated = row[6]?.v || "";
 
-        document.getElementById("updated").textContent =
-          updated ? `Updated: ${updated}` : "";
-      });
+    document.getElementById("status").textContent =
+      mode === "FLYING" ? "Dad is flying ✈️" : "Dad is here";
+
+    document.getElementById("location").textContent =
+      city && state ? `${city}, ${state}` : "";
+
+    document.getElementById("updated").textContent =
+      updated ? `Updated: ${updated}` : "";
+  })
+  .catch(err => {
+    document.getElementById("status").textContent = "Error loading location";
+    document.getElementById("location").textContent = err.toString();
+  });
+
   </script>
 </body>
 </html>
