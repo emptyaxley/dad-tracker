@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Dad Tracker</title>
+<title>Dad Tracker Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14,20 +14,6 @@
     width: 100%;
     overflow: hidden;
   }
-  .center {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    text-align: center;
-    font-family: sans-serif;
-    padding: 10px;
-  }
-  .big { font-size: 2.5em; font-weight: bold; }
-  .medium { font-size: 1.5em; margin: 5px 0; }
-  .small { font-size: 1em; color: gray; }
-  #map { height: 100%; width: 100%; }
 </style>
 </head>
 <body>
@@ -40,9 +26,20 @@
 const SHEET_ID = "1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4";
 const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
 
-// Set your boys' home coordinates here
+// Boys' home coordinates
 const HOME_LAT = 35.3871741;
 const HOME_LONG = -84.5345774;
+
+// Haversine distance
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 3958.8; // miles
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return (R * c).toFixed(1);
+}
 
 function loadData() {
   fetch(URL)
@@ -50,14 +47,11 @@ function loadData() {
     .then(text => {
       const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
       const table = JSON.parse(jsonText).table;
-
       const headers = table.cols.map(c => c.label);
       const values = table.rows[0].c;
 
       const row = {};
-      headers.forEach((h, i) => {
-        row[h] = values[i]?.v || "";
-      });
+      headers.forEach((h, i) => row[h] = values[i]?.v || "");
 
       const app = document.getElementById("app");
       app.innerHTML = "";
@@ -67,66 +61,70 @@ function loadData() {
         const iframe = document.createElement("iframe");
         iframe.src = `https://www.airnavradar.com/data/flights/${row.flight_id}`;
         iframe.style.width = "100vw";
-        iframe.style.height = "110%"; // extra height
+        iframe.style.height = "110%";
         iframe.style.border = "none";
-        iframe.style.transform = "translateY(-60px)"; // adjust to top
+        iframe.style.transform = "translateY(-60px)";
         iframe.style.transformOrigin = "top left";
         app.appendChild(iframe);
         return;
       }
 
       // -------- Ground Mode --------
+      // Map container
       const mapDiv = document.createElement("div");
       mapDiv.id = "map";
+      mapDiv.style.position = "absolute";
+      mapDiv.style.top = "0";
+      mapDiv.style.left = "0";
+      mapDiv.style.width = "100%";
+      mapDiv.style.height = "100%";
       app.appendChild(mapDiv);
 
-      // Initialize Leaflet map
-      const map = L.map('map', {zoomControl: false, attributionControl: false}).setView([row.dad_lat || HOME_LAT, row.dad_long || HOME_LONG], 8);
+      // Initialize map
+      const map = L.map('map', {zoomControl: false, attributionControl: false});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
 
-      // Add OpenStreetMap tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19
-      }).addTo(map);
+      // Markers
+      const dadMarker = L.marker([row.dad_lat, row.dad_long]).addTo(map).bindPopup("Dad is here").openPopup();
+      const homeMarker = L.marker([HOME_LAT, HOME_LONG]).addTo(map).bindPopup("Home").openPopup();
 
-      // Dad marker
-      const dadMarker = L.marker([row.dad_lat, row.dad_long]).addTo(map)
-        .bindPopup("Dad is here").openPopup();
-
-      // Home marker
-      const homeMarker = L.marker([HOME_LAT, HOME_LONG]).addTo(map)
-        .bindPopup("Home").openPopup();
-
-      // Line between home and dad
+      // Line
       const line = L.polyline([[HOME_LAT, HOME_LONG], [row.dad_lat, row.dad_long]], {color: 'blue'}).addTo(map);
 
-      // Distance calculation
-      function haversine(lat1, lon1, lat2, lon2) {
-        const R = 3958.8; // miles
-        const toRad = deg => deg * Math.PI / 180;
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return (R * c).toFixed(1);
-      }
-
+      // Distance
       const distance = haversine(HOME_LAT, HOME_LONG, row.dad_lat, row.dad_long);
 
-      // Overlay info
+      // Floating overlay
       const infoDiv = document.createElement("div");
-      infoDiv.className = "center";
+      infoDiv.style.position = "absolute";
+      infoDiv.style.top = "20px";
+      infoDiv.style.left = "50%";
+      infoDiv.style.transform = "translateX(-50%)";
+      infoDiv.style.backgroundColor = "rgba(255,255,255,0.85)";
+      infoDiv.style.padding = "15px 25px";
+      infoDiv.style.borderRadius = "10px";
+      infoDiv.style.textAlign = "center";
+      infoDiv.style.zIndex = 1000;
+      infoDiv.style.fontFamily = "sans-serif";
       infoDiv.innerHTML = `
-        <div class="big">Dad is here</div>
-        <div class="medium">${row.city}, ${row.state}</div>
-        <div class="small">Updated: ${row.updated}</div>
-        <div class="medium">Distance from home: ${distance} miles</div>
+        <div style="font-size:2em; font-weight:bold;">Dad is here</div>
+        <div style="font-size:1.5em; margin:5px 0;">${row.city}, ${row.state}</div>
+        <div style="font-size:1em; color:gray;">Updated: ${row.updated}</div>
+        <div style="font-size:1.5em; margin-top:5px;">Distance from home: ${distance} miles</div>
       `;
       app.appendChild(infoDiv);
 
+      // Map bounds
+      const bounds = L.latLngBounds([[HOME_LAT, HOME_LONG], [row.dad_lat, row.dad_long]]);
+      const usBounds = L.latLngBounds([[24.396308, -125.0], [49.384358, -66.93457]]);
+      const combinedBounds = bounds.contains(usBounds) ? usBounds : bounds;
+      map.fitBounds(combinedBounds, {padding: [50,50]});
     })
     .catch(err => {
       document.getElementById("app").innerHTML =
-        `<div class="center"><div class="big">Error</div><div>${err}</div></div>`;
+        `<div style="display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">
+          <div><div style="font-size:2em;font-weight:bold;">Error</div><div>${err}</div></div>
+        </div>`;
     });
 }
 
