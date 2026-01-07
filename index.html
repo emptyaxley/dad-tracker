@@ -65,15 +65,15 @@ function loadData() {
       app.innerHTML = "";
 
       // ✈️ FLIGHT MODE using official FlightAware widget
-      if (row.mode === "FLYING" && row.flight_id) {
-        const iframe = document.createElement("iframe");
-        iframe.src = `https://flightaware.com/embed/flight/${row.flight_id}?feedType=html`;
-        iframe.style.width = "100vw";
-        iframe.style.height = "100vh";
-        iframe.style.border = "none";
-        app.appendChild(iframe);
-        return;
-      }
+       if (row.mode === "FLYING" && row.flight_id) {
+      const iframe = document.createElement("iframe");
+      iframe.src = `https://www.flightradar24.com/flight/${row.flight_id}/embed`;
+      iframe.style.width = "100vw";
+      iframe.style.height = "100vh";
+      iframe.style.border = "none";
+      app.appendChild(iframe);
+      return;
+  }
 
       // 🌍 GROUND MODE (fallback)
       app.innerHTML = `
