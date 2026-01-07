@@ -67,7 +67,7 @@ function loadData() {
       // ✈️ FLIGHT MODE using official FlightAware widget
        if (row.mode === "FLYING" && row.flight_id) {
       const iframe = document.createElement("iframe");
-      iframe.src = `https://www.flightradar24.com/flight/${row.flight_id}/embed`;
+      iframe.src = `https://www.airnavradar.com/data/flights/${row.flight_id}`;
       iframe.style.width = "100vw";
       iframe.style.height = "100vh";
       iframe.style.border = "none";
