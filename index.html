@@ -41,6 +41,37 @@ function haversine(lat1, lon1, lat2, lon2) {
   return (R * c).toFixed(1);
 }
 
+// Friendly date formatting
+function formatUpdated(rowUpdated) {
+  if (!rowUpdated) return "N/A";
+
+  const d = new Date(rowUpdated);
+  const now = new Date();
+
+  // Normalize dates to midnight for comparison
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const updatedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  if (updatedDate.getTime() === today.getTime()) {
+    // Today: show "Today at HH:MM:SS AM/PM"
+    const hours = d.getHours() % 12 || 12;
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const seconds = d.getSeconds().toString().padStart(2, "0");
+    const ampm = d.getHours() >= 12 ? "PM" : "AM";
+    return `Today at ${hours}:${minutes}:${seconds} ${ampm}`;
+  } else if (updatedDate.getTime() === yesterday.getTime()) {
+    return "Yesterday";
+  } else {
+    // Older: show days ago
+    const diffTime = today - updatedDate; // in milliseconds
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  }
+}
+
 function loadData() {
   fetch(URL)
     .then(res => res.text())
@@ -56,6 +87,8 @@ function loadData() {
       const app = document.getElementById("app");
       app.innerHTML = "";
 
+      const updatedStr = formatUpdated(row.updated);
+
       // -------- Flight Mode --------
       if (row.mode === "FLYING" && row.flight_id) {
         const iframe = document.createElement("iframe");
@@ -70,7 +103,6 @@ function loadData() {
       }
 
       // -------- Ground Mode --------
-      // Map container
       const mapDiv = document.createElement("div");
       mapDiv.id = "map";
       mapDiv.style.position = "absolute";
@@ -80,18 +112,13 @@ function loadData() {
       mapDiv.style.height = "100%";
       app.appendChild(mapDiv);
 
-      // Initialize map
       const map = L.map('map', {zoomControl: false, attributionControl: false});
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
 
-      // Markers
       const dadMarker = L.marker([row.dad_lat, row.dad_long]).addTo(map).bindPopup("Dad is here").openPopup();
       const homeMarker = L.marker([HOME_LAT, HOME_LONG]).addTo(map).bindPopup("Home").openPopup();
-
-      // Line
       const line = L.polyline([[HOME_LAT, HOME_LONG], [row.dad_lat, row.dad_long]], {color: 'blue'}).addTo(map);
 
-      // Distance
       const distance = haversine(HOME_LAT, HOME_LONG, row.dad_lat, row.dad_long);
 
       // Floating overlay
@@ -109,7 +136,7 @@ function loadData() {
       infoDiv.innerHTML = `
         <div style="font-size:2em; font-weight:bold;">Dad is here</div>
         <div style="font-size:1.5em; margin:5px 0;">${row.city}, ${row.state}</div>
-        <div style="font-size:1em; color:gray;">Updated: ${row.updated}</div>
+        <div style="font-size:1em; color:gray;">Updated: ${updatedStr}</div>
         <div style="font-size:1.5em; margin-top:5px;">Distance from home: ${distance} miles</div>
       `;
       app.appendChild(infoDiv);
