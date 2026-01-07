@@ -1,50 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Dad Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #0b1c2d;
-      color: white;
-    }
-
-    .center {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .big {
-      font-size: 48px;
-      font-weight: bold;
-    }
-
-    .medium {
-      font-size: 28px;
-      margin-top: 10px;
-    }
-
-    iframe {
-      border: none;
-      width: 100vw;
-      height: 100vh;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Dad Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body, #app {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+  .center {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    text-align: center;
+    font-family: sans-serif;
+    padding: 10px;
+  }
+  .big { font-size: 2.5em; font-weight: bold; }
+  .medium { font-size: 1.5em; margin: 5px 0; }
+  .small { font-size: 1em; color: gray; }
+  #map { height: 100%; width: 100%; }
+</style>
 </head>
 <body>
-
 <div id="app"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 const SHEET_ID = "1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4";
-const URL = `https://docs.google.com/spreadsheets/d/1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4/gviz/tq?tqx=out:json&headers=1`;
+const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
+
+// Set your boys' home coordinates here
+const HOME_LAT = 35.3871741;
+const HOME_LONG = -84.5345774;
 
 function loadData() {
   fetch(URL)
@@ -64,26 +62,67 @@ function loadData() {
       const app = document.getElementById("app");
       app.innerHTML = "";
 
-      // ✈️ FLIGHT MODE using official FlightAware widget
-       if (row.mode === "FLYING" && row.flight_id) {
-      const iframe = document.createElement("iframe");
-      iframe.src = `https://www.airnavradar.com/data/flights/${row.flight_id}`;
-      iframe.style.width = "100vw";
-      iframe.style.height = "160vh";
-      iframe.style.border = "none";
-      iframe.style.transform = "translateY(-60px)"; // shift content up 50px
-      app.appendChild(iframe);
-      return;
-  }
+      // -------- Flight Mode --------
+      if (row.mode === "FLYING" && row.flight_id) {
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://www.airnavradar.com/data/flights/${row.flight_id}`;
+        iframe.style.width = "100vw";
+        iframe.style.height = "110%"; // extra height
+        iframe.style.border = "none";
+        iframe.style.transform = "translateY(-60px)"; // adjust to top
+        iframe.style.transformOrigin = "top left";
+        app.appendChild(iframe);
+        return;
+      }
 
-      // 🌍 GROUND MODE (fallback)
-      app.innerHTML = `
-        <div class="center">
-          <div class="big">Dad is in:</div>
-          <div class="medium">${row.city}, ${row.state}</div>
-          <div class="small">Updated: ${row.updated}</div>
-        </div>
+      // -------- Ground Mode --------
+      const mapDiv = document.createElement("div");
+      mapDiv.id = "map";
+      app.appendChild(mapDiv);
+
+      // Initialize Leaflet map
+      const map = L.map('map', {zoomControl: false, attributionControl: false}).setView([row.dad_lat || HOME_LAT, row.dad_long || HOME_LONG], 8);
+
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(map);
+
+      // Dad marker
+      const dadMarker = L.marker([row.dad_lat, row.dad_long]).addTo(map)
+        .bindPopup("Dad is here").openPopup();
+
+      // Home marker
+      const homeMarker = L.marker([HOME_LAT, HOME_LONG]).addTo(map)
+        .bindPopup("Home").openPopup();
+
+      // Line between home and dad
+      const line = L.polyline([[HOME_LAT, HOME_LONG], [row.dad_lat, row.dad_long]], {color: 'blue'}).addTo(map);
+
+      // Distance calculation
+      function haversine(lat1, lon1, lat2, lon2) {
+        const R = 3958.8; // miles
+        const toRad = deg => deg * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return (R * c).toFixed(1);
+      }
+
+      const distance = haversine(HOME_LAT, HOME_LONG, row.dad_lat, row.dad_long);
+
+      // Overlay info
+      const infoDiv = document.createElement("div");
+      infoDiv.className = "center";
+      infoDiv.innerHTML = `
+        <div class="big">Dad is here</div>
+        <div class="medium">${row.city}, ${row.state}</div>
+        <div class="small">Updated: ${row.updated}</div>
+        <div class="medium">Distance from home: ${distance} miles</div>
       `;
+      app.appendChild(infoDiv);
+
     })
     .catch(err => {
       document.getElementById("app").innerHTML =
@@ -91,9 +130,11 @@ function loadData() {
     });
 }
 
+// Initial load
 loadData();
+
+// Refresh every minute
 setInterval(loadData, 60000);
 </script>
-
 </body>
 </html>
