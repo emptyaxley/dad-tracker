@@ -41,10 +41,23 @@ function haversine(lat1, lon1, lat2, lon2) {
   return (R * c).toFixed(1);
 }
 
+  // Convert Google Sheets serial date (e.g., 36525.8) to JS Date
+function convertSerialDate(serial) {
+  const epoch = new Date(1899, 11, 30); // Google Sheets epoch
+  return new Date(epoch.getTime() + serial * 24 * 60 * 60 * 1000);
+}
+
 // Parse Google Sheets date string like "1/6/2026 22:25:50"
-function parseSheetDate(sheetValue) {
+
+  function parseSheetDate(sheetValue) {
   if (!sheetValue) return null;
 
+  // If it's a number, it's a Sheets serial date
+  if (typeof sheetValue === "number") {
+    return convertSerialDate(sheetValue);
+  }
+
+  // Otherwise parse the string
   const [datePart, timePart] = sheetValue.split(" ");
   if (!datePart || !timePart) return null;
 
@@ -53,6 +66,7 @@ function parseSheetDate(sheetValue) {
 
   return new Date(year, month - 1, day, hours, minutes, seconds);
 }
+
 
 // Friendly updated date string
 function formatUpdated(sheetValue) {
