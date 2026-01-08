@@ -138,7 +138,7 @@ function loadData() {
       const map = L.map('map', {zoomControl: false, attributionControl: false});
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
 
-      const dadMarker = L.marker([row.dad_lat, row.dad_long]).addTo(map).bindPopup("Dad is here").openPopup();
+      const dadMarker = L.marker([row.dad_lat, row.dad_long]).addTo(map).bindPopup("Where is Dad?").openPopup();
       const homeMarker = L.marker([HOME_LAT, HOME_LONG]).addTo(map).bindPopup("Home").openPopup();
       const line = L.polyline([[HOME_LAT, HOME_LONG], [row.dad_lat, row.dad_long]], {color: 'blue'}).addTo(map);
 
