@@ -23,27 +23,86 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-function loadData() {
-  fetch(URL)
-    .then(res => res.text())
-    .then(text => {
-      const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
-      const table = JSON.parse(jsonText).table;
+const SHEET_ID = "1_n0RQwaGF_WxeujBq8Z04NG_ejzK71VhPa7YJE0WmM4";
+const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
 
-      const headers = table.cols.map(c => c.label);
-      const values = table.rows[0]?.c;
+// Boys' home coordinates
+const HOME_LAT = 35.3871741;
+const HOME_LONG = -84.5345774;
 
-      if (!values) throw new Error("No data found in the sheet.");
+// Haversine distance
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 3958.8; // miles
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return (R * c).toFixed(1);
+}
 
-      // Build row object
-      const row = {};
-      headers.forEach((h, i) => row[h] = values[i]?.v || "");
+// ------------------------
+// Robust parse of Google Sheets "updated" cell
+// ------------------------
+function parseSheetDate(sheetValue) {
+  if (!sheetValue) return null;
 
-      const app = document.getElementById("app");
-      app.innerHTML = "";
+  // 1️⃣ Already a Date object
+  if (sheetValue instanceof Date) return sheetValue;
 
-      // Safely generate updated string
-      const updatedStr = row.updated ? formatUpdated(row.updated) : "N/A";
+  // 2️⃣ A number (Sheets serial date)
+  if (typeof sheetValue === "number") {
+    const jsDate = new Date(Date.UTC(1899, 11, 30)); // day 0 = Dec 30, 1899
+    jsDate.setDate(jsDate.getDate() + sheetValue);
+    return jsDate;
+  }
+
+  // 3️⃣ A string, e.g., "1/7/26 19:16:49"
+  const parts = sheetValue.split(" ");
+  if (parts.length < 2) return null;
+
+  const [datePart, timePart] = parts;
+  const [month, day, year] = datePart.split("/").map(Number);
+
+  if (!month || !day || !year) return null;
+
+  // Fix 2-digit year
+  const fullYear = year < 100 ? 2000 + year : year;
+
+  const [hours, minutes, seconds] = timePart.split(":").map(Number);
+  return new Date(fullYear, month - 1, day, hours, minutes, seconds);
+}
+
+// ------------------------
+// Friendly "Updated" string
+// ------------------------
+function formatUpdated(sheetValue) {
+  const d = parseSheetDate(sheetValue);
+  if (!d) return "N/A";
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const updatedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  if (updatedDate.getTime() === today.getTime()) {
+    // Today → show time
+    const hours = d.getHours() % 12 || 12;
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const ampm = d.getHours() >= 12 ? "PM" : "AM";
+    return `Today at ${hours}:${minutes} ${ampm}`;
+  } else if (updatedDate.getTime() === yesterday.getTime()) {
+    return "Yesterday";
+  } else {
+    const diffTime = today - updatedDate;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+  }
+}
+
+      const updatedStr = formatUpdated(row.updated);
 
       // -------- Flight Mode --------
       if (row.mode === "FLYING" && row.flight_id) {
@@ -71,14 +130,11 @@ function loadData() {
       const map = L.map('map', {zoomControl: false, attributionControl: false});
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
 
-      const dadLat = row.dad_lat || HOME_LAT;
-      const dadLong = row.dad_long || HOME_LONG;
-
-      const dadMarker = L.marker([dadLat, dadLong]).addTo(map).bindPopup("Dad is here").openPopup();
+      const dadMarker = L.marker([row.dad_lat, row.dad_long]).addTo(map).bindPopup("Dad is here").openPopup();
       const homeMarker = L.marker([HOME_LAT, HOME_LONG]).addTo(map).bindPopup("Home").openPopup();
-      const line = L.polyline([[HOME_LAT, HOME_LONG], [dadLat, dadLong]], {color: 'blue'}).addTo(map);
+      const line = L.polyline([[HOME_LAT, HOME_LONG], [row.dad_lat, row.dad_long]], {color: 'blue'}).addTo(map);
 
-      const distance = haversine(HOME_LAT, HOME_LONG, dadLat, dadLong);
+      const distance = haversine(HOME_LAT, HOME_LONG, row.dad_lat, row.dad_long);
 
       // Floating overlay
       const infoDiv = document.createElement("div");
@@ -94,16 +150,16 @@ function loadData() {
       infoDiv.style.fontFamily = "sans-serif";
       infoDiv.innerHTML = `
         <div style="font-size:2em; font-weight:bold;">Dad is here</div>
-        <div style="font-size:1.5em; margin:5px 0;">${row.city || "Unknown"}, ${row.state || ""}</div>
+        <div style="font-size:1.5em; margin:5px 0;">${row.city}, ${row.state}</div>
         <div style="font-size:1em; color:gray;">Updated: ${updatedStr}</div>
         <div style="font-size:1.5em; margin-top:5px;">Distance from home: ${distance} miles</div>
       `;
       app.appendChild(infoDiv);
 
       // Map bounds
-      const dadHomeBounds = L.latLngBounds([[HOME_LAT, HOME_LONG], [dadLat, dadLong]]);
+      const dadHomeBounds = L.latLngBounds([[HOME_LAT, HOME_LONG], [row.dad_lat, row.dad_long]]);
       const usBounds = L.latLngBounds([[24.396308, -125.0], [49.384358, -66.93457]]);
-      const combinedBounds = dadHomeBounds.extend(usBounds);
+      const combinedBounds = dadHomeBounds.extend(usBounds); // union of both
       map.fitBounds(combinedBounds, {padding: [50,50]});
     })
     .catch(err => {
@@ -111,16 +167,14 @@ function loadData() {
         `<div style="display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">
           <div><div style="font-size:2em;font-weight:bold;">Error</div><div>${err}</div></div>
         </div>`;
-      console.error("Error loading data:", err);
     });
 }
 
 // Initial load
 loadData();
 
-// Refresh every 5 minutes
-setInterval(loadData, 300000);
+// Refresh every minute
+setInterval(loadData, 60000);
 </script>
-
 </body>
 </html>
