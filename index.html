@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Dad Tracker Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body, #app {
@@ -14,12 +13,36 @@
     width: 100%;
     overflow: hidden;
   }
+  
+  /* ---- New CSS for Scrolling Ticker ---- */
+  .scrolling-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 12px 0;
+    font-family: sans-serif;
+    font-size: 1.5em;
+    z-index: 1000;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .scrolling-text {
+    display: inline-block;
+    /* Adjust the 15s value to make it scroll faster or slower */
+    animation: scroll-left 15s linear infinite;
+  }
+  @keyframes scroll-left {
+    from { transform: translateX(100vw); }
+    to { transform: translateX(-100%); }
+  }
 </style>
 </head>
 <body>
 <div id="app"></div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
@@ -41,23 +64,20 @@ function haversine(lat1, lon1, lat2, lon2) {
   return (R * c).toFixed(1);
 }
 
-  // Convert Google Sheets serial date (e.g., 36525.8) to JS Date
+// Convert Google Sheets serial date (e.g., 36525.8) to JS Date
 function convertSerialDate(serial) {
   const epoch = new Date(1899, 11, 30); // Google Sheets epoch
   return new Date(epoch.getTime() + serial * 24 * 60 * 60 * 1000);
 }
 
-// Parse Google Sheets date string like "1/6/2026 22:25:50"
-
-  function parseSheetDate(sheetValue) {
+// Parse Google Sheets date string
+function parseSheetDate(sheetValue) {
   if (!sheetValue) return null;
 
-  // If it's a number, it's a Sheets serial date
   if (typeof sheetValue === "number") {
     return convertSerialDate(sheetValue);
   }
 
-  // Otherwise parse the string
   const [datePart, timePart] = sheetValue.split(" ");
   if (!datePart || !timePart) return null;
 
@@ -66,7 +86,6 @@ function convertSerialDate(serial) {
 
   return new Date(year, month - 1, day, hours, minutes, seconds);
 }
-
 
 // Friendly updated date string
 function formatUpdated(sheetValue) {
@@ -122,7 +141,7 @@ function loadData() {
         iframe.style.transform = "translateY(-60px)";
         iframe.style.transformOrigin = "top left";
         app.appendChild(iframe);
-        return;
+        return; // Exits early, so no map and no scrolling message render
       }
 
       // -------- Ground Mode --------
@@ -169,6 +188,14 @@ function loadData() {
       const usBounds = L.latLngBounds([[24.396308, -125.0], [49.384358, -66.93457]]);
       const combinedBounds = dadHomeBounds.extend(usBounds); // union of both
       map.fitBounds(combinedBounds, {padding: [50,50]});
+
+      // -------- Scrolling Message (Ground Mode Only) --------
+      if (row.message && row.message.trim() !== "") {
+        const tickerDiv = document.createElement("div");
+        tickerDiv.className = "scrolling-container";
+        tickerDiv.innerHTML = `<div class="scrolling-text">${row.message}</div>`;
+        app.appendChild(tickerDiv);
+      }
     })
     .catch(err => {
       document.getElementById("app").innerHTML =
